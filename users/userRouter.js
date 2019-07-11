@@ -1,11 +1,11 @@
 const express = require("express");
 
-userDb = require("./userDb");
-postDb = require("../posts/postDb");
+const userDb = require("./userDb");
+const postDb = require("../posts/postDb");
 const router = express.Router();
 
-router.post("/", async (req, res) => {
-  console.log("new user is:", req.body);
+router.post("/", validateUser, async (req, res) => {
+  console.log("new user is:", req);
   const newUser = req.body;
 
   if (!newUser) {
@@ -15,7 +15,7 @@ router.post("/", async (req, res) => {
   } else {
     try {
       const userInfo = await userDb.insert(req.body);
-      const users = await Db.get();
+      const users = await userDb.get();
       res.status(201).json(users);
     } catch (error) {
       console.log(error);
@@ -26,7 +26,33 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.post("/:id/posts", validateUserId, (req, res) => {});
+router.post("/:id/posts", validatePost, async (req, res) => {
+  const newPost = req.body;
+  console.log("new post is:", newPost);
+  if (!newPost) {
+    res.status(400).json({
+      message: "missing post data"
+    });
+  } else if (!newPost.text) {
+    res.status(400).json({
+      message: "missing required text field"
+    });
+  } else {
+    try {
+      const postInfo = await postDb.insert({
+        ...req.body,
+        user_id: req.params.id
+      });
+      const posts = await postDb.get();
+      res.status(201).json(posts);
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({
+        error: "There was an error while saving the post to the database"
+      });
+    }
+  }
+});
 
 router.get("/", async (req, res) => {
   try {
@@ -83,7 +109,7 @@ router.get("/:id/posts", validateUserId, (req, res) => {
     });
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", validateUserId, async (req, res) => {
   try {
     const count = await userDb.remove(req.params.id);
     if (count > 0) {
@@ -106,7 +132,7 @@ router.put("/:id", validateUserId, (req, res) => {});
 async function validateUserId(req, res, next) {
   console.log("ID:", req.params.id);
   try {
-    const found = await userDb.getById(req.params);
+    const found = await userDb.getById(req.params.id);
     console.log("FOUND:", found);
     if (found) {
       next();
