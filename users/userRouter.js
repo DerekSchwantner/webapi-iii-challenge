@@ -5,24 +5,18 @@ const postDb = require("../posts/postDb");
 const router = express.Router();
 
 router.post("/", validateUser, async (req, res) => {
-  console.log("new user is:", req);
+  //   console.log("new user is:", req);
   const newUser = req.body;
 
-  if (!newUser) {
-    res.status(400).json({
-      errorMessage: "Please provide name for the user."
+  try {
+    const userInfo = await userDb.insert(req.body);
+    const users = await userDb.get();
+    res.status(201).json(users);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      error: "There was an error while saving the user to the database"
     });
-  } else {
-    try {
-      const userInfo = await userDb.insert(req.body);
-      const users = await userDb.get();
-      res.status(201).json(users);
-    } catch (error) {
-      console.log(error);
-      res.status(500).json({
-        error: "There was an error while saving the user to the database"
-      });
-    }
   }
 });
 
@@ -125,7 +119,21 @@ router.delete("/:id", validateUserId, async (req, res) => {
   }
 });
 
-router.put("/:id", validateUserId, (req, res) => {});
+router.put("/:id", validateUserId, validateUser, async (req, res) => {
+  const updatedUser = req.body;
+  const userId = req.params.id;
+  console.log(updatedUser);
+  try {
+    const isUpdated = await userDb.update(userId, updatedUser);
+    if (isUpdated) {
+      res.status(200).json({ message: "the user has been updated" });
+    } else {
+      res.status(400).json({ error: "the information is missing" });
+    }
+  } catch {
+    res.status(500).json({ error: "Error updating the user" });
+  }
+});
 
 //custom middleware
 //found still isnt working
@@ -146,7 +154,7 @@ async function validateUserId(req, res, next) {
 function validateUser(req, res, next) {
   const user = req.body;
   console.log("time to validate the user");
-  if (!user) {
+  if (Object.keys(user).length === 0) {
     res.status(400).json({ message: "missing user data" });
   } else if (!user.name) {
     res.status(400).json({ message: "missing required name field" });
